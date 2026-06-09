@@ -1,242 +1,168 @@
-# 🚀 部署指南：从零到上线
+# 🚀 部署指南：阿里云函数计算 Function AI
 
-> 智能舆情监测平台 — 零部署经验也能看懂的操作手册。
-
----
-
-## 🗺️ 选哪个平台？
-
-| 层 | 平台 | 费用 | 信用卡 | 实名 |
-|----|------|------|--------|------|
-| 🖥 后端 | **Alwaysdata**（法国） | 永久免费 100MB | ❌ | ❌ |
-| 🌐 前端 | **CloudBase 静态托管** | 免费 5GB + CDN | ❌ | 微信已认证 |
-
-> ✅ Alwaysdata 永久免费，不用信用卡，不用实名，自带 HTTPS。
-> ✅ CloudBase 静态托管已开通，国内访问快。
+> 智能舆情监测平台 — Serverless 一键部署，无需管理服务器。
 
 ---
 
-## 📋 你需要准备
+## 🎯 为什么选这个方案
 
-| 准备项 | 去哪弄 |
-|--------|--------|
-| 邮箱地址 | Alwaysdata 注册用 |
-| Serper API Key | https://serper.dev → 免费注册 2500次/月 |
-| DeepSeek API Key | https://platform.deepseek.com → 注册充值 ¥1 即可 |
+| 对比项 | 阿里云 FC | CloudBase | Render/Vercel |
+|--------|----------|-----------|---------------|
+| 支付方式 | ✅ 支付宝/微信 | ✅ 微信 | ❌ 需信用卡 |
+| 管理服务器 | ❌ 不需要 | ❌ 不需要 | ❌ 不需要 |
+| Python 后端 | ✅ Web 服务模式 | ⚠️ 云托管要付费 | ⚠️ 有限制 |
+| SQLite | ✅ 临时存储够用 | ✅ | ⚠️ |
+| SSE 流式 | ✅ 支持 | ✅ | ⚠️ 部分支持 |
+| GitHub 自动部署 | ✅ | ✅ | ✅ |
+| 国内访问速度 | ⚡ 快 | ⚡ 快 | 🐢 慢/被墙 |
 
 ---
 
-## 🖥 第一步：部署后端到 Alwaysdata
+## 📋 前置准备
 
-### 1.1 注册 Alwaysdata
+| 准备项 | 说明 |
+|--------|------|
+| 阿里云账号 | 需实名认证（支付宝扫码即可） |
+| GitHub 仓库 | `helenzhan0302-maker/intelligent-sentiment-monitor` |
+| Serper API Key | https://serper.dev → 免费注册 |
+| DeepSeek API Key | https://platform.deepseek.com → 注册充值 ¥1 |
 
-1. 打开 https://www.alwaysdata.com → 点右上角 **Sign up**
-2. 填邮箱 + 密码 → 注册
-3. 去邮箱点确认链接 → 激活账号
+---
 
-### 1.2 创建后端站点
+## 🖥 第一步：部署后端（函数计算 FC）
 
-登录后进入管理面板（Admin），按以下操作：
+### 1.1 进入 Function AI 控制台
 
-1. 左侧菜单 → **Web** → **Sites**
-2. 点击 **Add a site**，填写：
+1. 打开 https://fc-next.console.aliyun.com
+2. 左侧导航 → **Function AI** → **项目列表**
+3. 点击 **创建项目** → 选择 **空白项目**
+4. 项目名称填 `sentiment-monitor`
 
-| 字段 | 值 | 说明 |
-|------|-----|------|
-| **Type** | User program | 运行任意命令行程序 |
-| **Name** | `sentiment-backend` | 自定义 |
-| **Addresses** | 勾选你的域名（如 `用户名.alwaysdata.net`） | |
+### 1.2 创建 Web 服务
 
-> 域名格式：`https://你的用户名.alwaysdata.net`（注册时自动分配）
+进入项目 → 点击 **新建服务** → 选择 **Web 服务**，填写：
 
-3. 点击 **Create** 创建站点
+#### 基础配置
 
-### 1.3 上传代码
+| 字段 | 值 |
+|------|-----|
+| 服务名称 | `sentiment-backend` |
+| 运行环境 | **Python 3.10**（选最接近 3.11 的版本） |
+| 代码仓库 | 连接 GitHub → 选 `helenzhan0302-maker/intelligent-sentiment-monitor` |
+| 分支 | `master` |
+| 根目录 | `backend` |
 
-打开你电脑的终端（WSL / 命令行）：
+#### 构建 & 启动命令
 
-```bash
-# 1. 生成 SSH 密钥（如果还没有）
-ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_alwaysdata
-# 一路回车即可
+| 字段 | 值 |
+|------|-----|
+| 构建命令 | `pip install -r requirements.txt` |
+| 启动命令 | `uvicorn index:app --host 0.0.0.0 --port 8080` |
+| 监听端口 | `8080` |
 
-# 2. 查看公钥，复制全部内容
-cat ~/.ssh/id_ed25519_alwaysdata.pub
-```
-
-回到 Alwaysdata 网页：
-- 右上角用户菜单 → **SSH Keys**
-- 粘贴公钥 → **Add**
-
-然后在终端上传代码：
-
-```bash
-# 3. 测试 SSH 连接（替换成你的用户名）
-ssh 你的用户名@ssh-alwaysdata.net
-
-# 4. 创建目录并上传代码
-# 先退出 SSH（如果已登录），然后：
-cd /home/haili/project/vibecoding/query
-scp -r backend/ 你的用户名@ssh-alwaysdata.net:/www/backend/
-```
-
-### 1.4 安装依赖 + 配置启动命令
-
-SSH 登录到 Alwaysdata：
-
-```bash
-ssh 你的用户名@ssh-alwaysdata.net
-
-# 安装 Python 依赖
-cd /www/backend
-pip install --user -r requirements.txt
-
-# 测试能否启动（Ctrl+C 退出）
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
-```
-
-测试成功后，回到 Alwaysdata 管理面板：
-
-1. **Web** → **Sites** → 点击刚才创建的 `sentiment-backend`
-2. 找到 **Command** 字段，填入：
-
-```bash
-cd /www/backend && python -m uvicorn main:app --host 0.0.0.0 --port $PORT
-```
-
-3. 找到 **Working directory**，填：`/www/backend`
-
-### 1.5 设置环境变量
-
-1. Alwaysdata 面板 → **Environment**
-2. 添加以下变量：
+#### 环境变量
 
 | 变量名 | 值 |
 |--------|-----|
 | `SERPER_API_KEY` | 你的 Serper Key |
 | `DEEPSEEK_API_KEY` | 你的 DeepSeek Key |
-| `JWT_SECRET` | 随机字符串（比如 `myMonitorSecret2026`） |
+| `JWT_SECRET` | 自定义随机字符串（如 `myMonitor2026!`） |
 
-3. 点击 **Save**
+### 1.3 部署
 
-### 1.6 重启 + 验证
+1. 点击 **预览 & 部署**
+2. 等待构建完成（约 2-3 分钟）
+3. 部署成功后，点击 **服务详情** → 复制 **公网访问地址**
 
-1. Alwaysdata → **Web** → **Sites** → 找到你的站点 → 点击 **Restart**
-2. 等几秒后，浏览器打开：
-```
-https://你的用户名.alwaysdata.net/api/health
-```
-3. 看到这个就成功了：
+验证后端：浏览器打开 `https://你的地址/api/health`
+
 ```json
 {"status":"ok","version":"v0.4.0"}
 ```
 
-> 📝 记下 `https://你的用户名.alwaysdata.net`，这是后端地址。
+> 📝 记下后端地址，如 `https://xxx.cn-hangzhou.fc.aliyuncs.com`
 
 ---
 
-## 🌐 第二步：部署前端到 CloudBase
-
-前端直接用你已有的 CloudBase 环境。
+## 🌐 第二步：部署前端（OSS 静态托管）
 
 ### 2.1 本地构建
-
-在终端执行：
 
 ```bash
 cd /home/haili/project/vibecoding/query/frontend
 
-# ⚠️ 替换成你 Alwaysdata 的真实域名！
-export VITE_API_URL=https://你的用户名.alwaysdata.net/api
+# ⚠️ 替换成你的后端地址！
+export VITE_API_URL=https://你的后端地址/api
 
-# 构建
 npm install
 npx vite build
 ```
 
-构建产物在 `frontend/dist/` 目录。
+构建产物在 `frontend/dist/`。
 
-### 2.2 上传到 CloudBase
+### 2.2 上传到 OSS
 
-1. 打开 https://console.cloud.tencent.com/tcb
-2. 左侧 → **静态网站托管** → **上传文件**
-3. 把 `dist/` 目录里所有文件拖进去上传
-4. 设置 → **基础配置** → **错误页面** 设为 `index.html`
+1. 打开 https://oss.console.aliyun.com
+2. 创建 Bucket（如已有则跳过）：
+   - Bucket 名称：`sentiment-frontend`
+   - 区域：和 FC 服务同区域（如杭州）
+   - 读写权限：**公共读**
+3. 进入 Bucket → **文件管理** → **上传文件**
+4. 把 `dist/` 里的所有文件上传
+5. 设置 **静态页面**：
+   - 默认首页：`index.html`
+   - 默认 404 页：`index.html`（SPA 路由回退）
 
-> ⚠️ 错误页面设为 `index.html` 很重要！否则用户刷新页面会 404。
+### 2.3 绑定域名（可选）
 
-### 2.3 获取前端域名
-
-静态网站托管页面上方会显示域名：
-```
-https://sentiment-monitor-xxxxx.tcloudbaseapp.com
-```
-这就是你的演示地址，发给客户就行。
+1. OSS 控制台 → **传输管理** → **域名管理**
+2. 绑定自定义域名 + 开启 CDN 加速
+3. 或直接用 OSS 提供的默认域名
 
 ---
 
 ## ✅ 第三步：验证
 
-打开前端域名，走一遍流程：
+打开前端地址，完整测试：
 
-1. 📝 **注册**（邀请码 `DEMO2026`）
-2. 🔑 **登录**
-3. 🔍 搜索关键词 → 看 SSE 进度条实时更新
-4. 📊 点击「生成 Top 3 综合深度报告」
-5. 📥 下载 Markdown 报告
-
-全通过 → 🎉 上线成功！
+1. 注册（邀请码 `DEMO2026`）
+2. 登录
+3. 搜索关键词 → 看 SSE 进度条
+4. 生成综合报告 → 下载 Markdown
 
 ---
 
-## 🔄 以后更新代码
+## 🔄 更新部署
 
-**后端**：
+代码推送到 GitHub `master` 分支后，FC 自动重新部署。
+
 ```bash
-cd /home/haili/project/vibecoding/query
-scp -r backend/*.py 你的用户名@ssh-alwaysdata.net:/www/backend/
-ssh 你的用户名@ssh-alwaysdata.net "systemctl --user restart uvicorn"
-# 或去 Alwaysdata 面板点 Restart
+git add . && git commit -m "描述" && git push
 ```
 
-**前端**：
-```bash
-cd /home/haili/project/vibecoding/query/frontend
-export VITE_API_URL=https://你的用户名.alwaysdata.net/api
-npx vite build
-# 然后去 CloudBase 面板上传新的 dist/ 文件
-```
+---
 
-**快捷方式**（全部更新）：
-```bash
-# 一次搞定后端+前端
-cd /home/haili/project/vibecoding/query
-scp -r backend/*.py 你的用户名@ssh-alwaysdata.net:/www/backend/
-ssh 你的用户名@ssh-alwaysdata.net "systemctl --user restart uvicorn"
-cd frontend && VITE_API_URL=https://你的用户名.alwaysdata.net/api npx vite build
-# 再去 CloudBase 面板上传 dist/
-```
+## 🔧 注意事项
+
+### SQLite 存储
+- FC 环境下 SQLite 文件存储在临时磁盘
+- 服务缩容到 0 或重新部署时 **数据会丢失**
+- 演示环境可接受（用户重新注册即可）
+- 如需持久化：后续迁移到阿里云 RDS MySQL
+
+### 唤醒延迟
+- 无请求时服务可能缩容
+- 首次请求有 2-5 秒冷启动延迟
+- 客户演示前先访问一次 `/api/health` 预热
 
 ---
 
 ## 🆘 问题排查
 
-| 现象 | 可能原因 | 解决 |
-|------|---------|------|
-| `/api/health` 打不开 | 站点没启动 | Alwaysdata → Sites → Restart |
-| `/api/health` 502 | 启动命令报错 | SSH 登录手动跑一下 uvicorn 看报错 |
-| 前端空白页 | `VITE_API_URL` 没设对 | 检查构建时的域名是否写对了 |
-| 注册失败 | 环境变量没生效 | Alwaysdata → Environment 确认 + Restart |
-| 搜索一直转圈 | Alwaysdata 网络问题 | 检查后端日志：SSH 登录后看 uvicorn 输出 |
-| 刷新页面 404 | SPA 路由没配 | CloudBase 静态托管 → 错误页面设为 index.html |
-| Alwaysdata 打不开 | 国内 DNS 解析慢 | 换个浏览器或 DNS 试试 |
-
----
-
-## 💡 零经验提示
-
-1. **SSH 是文件传输工具** — 把电脑上的代码传到服务器，`scp` = 文件传输，`ssh` = 远程登录
-2. **环境变量优先级** — 代码里 `os.getenv("KEY")` 会读你在 Alwaysdata 面板设的值
-3. **每次改环境变量后要重启** — Alwaysdata 点 Restart 按钮才能生效
-4. **客户演示前先预热** — 免费主机长时间无请求可能变慢，演示前先打开一次 `/api/health`
-5. **数据库是本地 SQLite 文件** — 部署更新 .py 代码不会覆盖 `data.db`，用户数据安全
+| 现象 | 排查方向 |
+|------|---------|
+| 部署失败 | 检查构建日志 → 确认 `requirements.txt` 依赖版本兼容 |
+| `/api/health` 502 | 检查启动命令 → 确认 `index:app` 语法正确 |
+| 搜索报错 | 检查环境变量 → 确认 API Key 已填 |
+| 前端空白 | 检查 `VITE_API_URL` → 确认地址正确且以 `/api` 结尾 |
+| 注册 422 | 后端没正常启动 → 先访问 `/api/health` |
