@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from auth import (
@@ -825,3 +826,20 @@ async def generate_combined_report_endpoint(req: CombinedReportRequest, user_id:
     if report is None:
         raise HTTPException(status_code=500, detail="综合报告生成失败，请重试")
     return report
+
+
+# ── 前端静态文件托管（SPA 模式）───────────────────────────────
+@app.get("/{full_path:path}")
+async def serve_spa():
+    """所有非 API 路由返回 index.html（React SPA）"""
+    import os
+    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    index_path = os.path.join(static_dir, "index.html")
+    if os.path.exists(index_path):
+        from fastapi.responses import FileResponse
+        return FileResponse(index_path)
+    return {"error": "前端未构建，请先运行 npm run build"}
+
+# 静态资源（JS/CSS/图片等）
+if os.path.exists(os.path.join(os.path.dirname(__file__), "static")):
+    app.mount("/assets", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static", "assets")), name="static")
