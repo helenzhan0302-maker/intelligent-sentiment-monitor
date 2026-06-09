@@ -31,33 +31,31 @@
 
 ## 🖥 第一步：部署后端（函数计算 FC）
 
-### 1.1 创建应用
+### 1.1 创建 Web 函数
 
 1. 打开 **https://fc.console.aliyun.com** → 登录
-2. 左侧菜单 → **应用中心 AppCenter**
-3. 点击 **创建应用** → 选择 **Web 应用** 模板
-   > 如果没有「Web 应用」模板，也可以去 **函数列表** → 创建函数 → 类型选 **Web 函数**，配置相同
-4. 应用名称填 `sentiment-monitor`
+2. 左侧菜单 → **函数管理** → **函数列表**
+3. 点击 **创建函数** → 类型选择 **Web 函数**
+   > 「Web 函数」支持 HTTP 请求，可以跑 FastAPI，不是普通的事件函数
+4. 函数名称填 `sentiment-backend`
 
-### 1.2 创建 Web 服务
+### 1.2 配置函数
 
-进入项目 → 点击 **新建服务** → 选择 **Web 服务**，填写：
+创建 Web 函数后，填写以下配置：
 
 #### 基础配置
 
 | 字段 | 值 |
 |------|-----|
-| 服务名称 | `sentiment-backend` |
-| 运行环境 | **Python 3.10**（选最接近 3.11 的版本） |
-| 代码仓库 | 连接 GitHub → 选 `helenzhan0302-maker/intelligent-sentiment-monitor` |
-| 分支 | `master` |
-| 根目录 | `backend` |
+| 函数名称 | `sentiment-backend` |
+| 运行环境 | **Python 3.10**（选最接近 3.11 的，Python 3.9 也可以） |
+| 代码上传方式 | **代码仓库** → 绑定 GitHub → 选仓库 `helenzhan0302-maker/intelligent-sentiment-monitor` |
+| 代码目录 | `backend` |
 
-#### 构建 & 启动命令
+#### 启动命令
 
 | 字段 | 值 |
 |------|-----|
-| 构建命令 | `pip install -r requirements.txt` |
 | 启动命令 | `uvicorn index:app --host 0.0.0.0 --port 8080` |
 | 监听端口 | `8080` |
 
@@ -71,17 +69,17 @@
 
 ### 1.3 部署
 
-1. 点击 **预览 & 部署**
+1. 点击 **创建**（或 **部署**）
 2. 等待构建完成（约 2-3 分钟）
-3. 部署成功后，点击 **服务详情** → 复制 **公网访问地址**
+3. 部署成功后 → 进入函数详情 → **触发器管理** → 复制 **HTTP 触发器的公网访问地址**
 
-验证后端：浏览器打开 `https://你的地址/api/health`
+验证：浏览器打开 `https://你的地址/api/health`
 
 ```json
 {"status":"ok","version":"v0.4.0"}
 ```
 
-> 📝 记下后端地址，如 `https://xxx.cn-hangzhou.fc.aliyuncs.com`
+> 📝 记下后端地址，下一步前端构建要用。
 
 ---
 
