@@ -4,7 +4,7 @@
 
 ## 当前版本：v0.4.0
 
-已实现：搜索 + 评分 + SSE 实时推送 + 综合报告 + JWT 认证 + SQLite 搜索历史。
+已实现：搜索 + 评分 + SSE 实时推送 + 综合报告 + JWT 认证 + SQLite 搜索历史 + 前后端一体部署。
 
 ---
 
@@ -13,12 +13,17 @@
 ```
 query/
 ├── CLAUDE.md                    # 本文件
+├── DEPLOY.md                    # 部署指南（阿里云 FC 3.0）
 ├── backend/
-│   ├── main.py                  # API 端点 + 搜索/评分/报告逻辑 (~550行)
+│   ├── main.py                  # API + 搜索/评分/报告 + 前端静态文件托管 (~560行)
 │   ├── auth.py                  # JWT 认证 + SQLite DB + 搜索历史 (~180行)
+│   ├── index.py                 # 阿里云 FC 入口（from main import app）
+│   ├── static/                  # 前端构建产物（后端内嵌托管）
+│   │   ├── index.html
+│   │   └── assets/              # JS + CSS (Vite 构建)
 │   ├── data.db                  # SQLite 数据库（自动生成，不提交）
 │   ├── .env                     # API keys + JWT_SECRET
-│   └── requirements.txt         # fastapi, uvicorn, httpx, python-dotenv, pyjwt
+│   └── requirements.txt         # fastapi, uvicorn[standard], httpx, python-dotenv, pyjwt
 ├── frontend/
 │   ├── src/
 │   │   ├── App.jsx              # 单文件前端 (~530行)：Dashboard + AuthModal + HistoryPanel
@@ -38,12 +43,13 @@ query/
 - **SQLite 持久化**：`sqlite3` stdlib，3 张表（users, invite_codes, search_history）
 - **评分不用 LLM**：规则引擎即时计算，保证搜索响应 < 5s
 - **LLM 仅用于**：DeepSeek fallback 搜索、按需综合报告生成
+- **前后端一体部署**：FastAPI `StaticFiles` 挂载前端构建产物 + SPA fallback 路由，单服务即可对外
 
 ## 技术栈
 
 | 层 | 技术 | 备注 |
 |----|------|------|
-| 后端框架 | FastAPI + Uvicorn | Python 3.14 |
+| 后端框架 | FastAPI + Uvicorn | Python 3.13+ (本地 3.14, FC 运行时 3.13) |
 | 数据库 | SQLite3 (stdlib) | WAL 模式，外键约束 |
 | 认证 | JWT HS256 + pbkdf2_hmac | 7天过期，stdlib 密码哈希 |
 | 前端框架 | React 18 + Vite 6 | 无 TypeScript |
@@ -51,7 +57,9 @@ query/
 | 搜索 API | Serper.dev (主) + Bing News API | 并行调用，DeepSeek fallback |
 | LLM API | DeepSeek (Anthropic-compatible) | `https://api.deepseek.com/anthropic/v1/messages` |
 | 实时推送 | SSE (Server-Sent Events) | `StreamingResponse` + `EventSource` |
-| 进程通信 | Vite proxy | `/api` → `http://localhost:8000` |
+| 本地进程通信 | Vite proxy | `/api` → `http://localhost:8000` |
+| 生产部署 | 阿里云 FC 3.0 Web 函数 | Python 3.13, 0.35 vCPU, 0.5 GB, 端口 9000 |
+| 生产前端托管 | FastAPI StaticFiles (后端内嵌) | 构建时 `VITE_API_URL=/api` 同域部署 |
 
 ## 预置邀请码
 
@@ -160,6 +168,8 @@ CREATE TABLE search_history (
 
 ## 启动命令
 
+### 本地开发
+
 ```bash
 # 后端（从 backend/ 目录启动）
 cd query/backend
@@ -170,6 +180,57 @@ python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 cd query/frontend
 npx vite --host 0.0.0.0
 ```
+
+### 生产构建（前端嵌入后端）
+
+```bash
+# 1. 构建前端（同域部署，相对 API 路径）
+cd query/frontend
+export VITE_API_URL=/api
+npm install
+npx vite build
+
+# 2. 复制到后端 static 目录
+cd ../backend
+rm -rf static/
+mkdir -p static/assets
+cp ../frontend/dist/index.html static/
+cp ../frontend/dist/assets/* static/assets/
+
+# 3. 打包 Python 依赖（FC 运行时 Python 3.13 Linux）
+pip install --target ./pkg \
+  --python-version 3.13 \
+  --platform manylinux2014_x86_64 \
+  --only-binary=:all: \
+  -r requirements.txt
+
+# 4. 复制代码 + 静态文件
+cp *.py requirements.txt ./pkg/
+cp -r static/ ./pkg/static/
+
+# 5. 上传 pkg/ 到 FC → 部署
+```
+
+### 生产启动（FC Web 函数）
+
+```
+python3 -m uvicorn index:app --host 0.0.0.0 --port 9000
+```
+
+> ⚠️ FC 必须用 `python3`（不是 `python`）和 `index:app`（不是 `main:app`）。
+
+## 部署
+
+| 项目 | 详情 |
+|------|------|
+| 平台 | 阿里云函数计算 FC 3.0 Web 函数 |
+| 地域 | 华东1（杭州） |
+| 运行时 | Python 3.13 (Debian 11) |
+| 规格 | 0.35 vCPU / 0.5 GB 内存 / 512 MB 磁盘 |
+| 地址 | `https://sentime-backend-kbwhfkrhkm.cn-hangzhou.fcapp.run` |
+| 部署文档 | `DEPLOY.md` — 完整 FC 部署 SOP |
+
+> ⚠️ **已知问题**：FC HTTP 触发器的 Content-Type 响应头问题可能导致前端页面被浏览器当作下载文件。`/api/health` 等 JSON 接口正常。前端演示可先用本地环境。
 
 ## 端口占用处理
 
@@ -195,6 +256,12 @@ fuser -k 8000/tcp    # 杀掉占用 8000 端口的进程
 | 54s 才出结果（demo 体感差） | 报告嵌入主流程 | v0.3.1 分离为独立接口 |
 | 注册/api/api/auth/register 404 | endpoint 重复 `/api` 前缀 | 改为 `/auth/register` |
 | 邀请码 DEMO2026 "已被使用" | `is_used` 限制一次 | 改为可复用 |
+| FC `pydantic_core` 报错 | C 扩展 Python 版本不匹配 (本地 3.14 → FC 3.13) | `pip install --python-version 3.13 --platform manylinux2014` |
+| FC `No module named 'click'` | `pip install --no-deps` 跳过依赖 | 安装时去掉 `--no-deps`，或显式安装缺失包 |
+| FC `CAFileNotFound` | 启动命令 `python` 不存在 | 改为 `python3`（Python 3.13 运行时的命令） |
+| FC 层冲突报错 | 自动挂载 `Python3-Flask3x` 层 | 配置 → 移除自动挂载的层 |
+| FC 签名认证拦截 | HTTP 触发器默认签名认证 | 认证方式改为「无需认证」 |
+| OSS HTML 被浏览器下载 | OSS 默认域名强制 `Content-Disposition: attachment` | 放弃 OSS，改用后端内嵌前端 |
 
 ## 迭代路线
 
