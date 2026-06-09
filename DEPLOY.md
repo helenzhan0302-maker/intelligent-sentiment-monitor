@@ -33,10 +33,12 @@
 
 ### 1.1 进入 Function AI 控制台
 
-1. 打开 https://fc-next.console.aliyun.com
-2. 左侧导航 → **Function AI** → **项目列表**
-3. 点击 **创建项目** → 选择 **空白项目**
+1. 打开 **https://fc.console.aliyun.com**（函数计算控制台）
+2. 左侧导航找到 **Function AI**（或 **应用** → **Web 应用**，取决于控制台版本）
+3. 点击 **创建项目** → 选择 **空白项目**（或 **Web 服务**）
 4. 项目名称填 `sentiment-monitor`
+
+> ⚠️ 如果找不到 Function AI 入口：在 FC 控制台直接点 **应用** → **创建应用** → 选 **Web 应用** 模板即可，配置方式一样。
 
 ### 1.2 创建 Web 服务
 
